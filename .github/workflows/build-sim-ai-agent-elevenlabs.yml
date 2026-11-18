@@ -58,6 +58,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/sim-ai-agent/app/src/main/assets"
           curl -fLsS --retry 3 'https://raw.githubusercontent.com/google/fonts/main/ofl/vazirmatn/OFL.txt' -o "$RUNNER_TEMP/sim-ai-agent/app/src/main/assets/OFL-VAZIRMATN.txt"
           test -s "$RUNNER_TEMP/sim-ai-agent/app/src/main/assets/OFL-VAZIRMATN.txt"
+      - name: Apply safe ElevenLabs defaults and credentials-first setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile experiments/sim-ai-agent-elevenlabs/preset_elevenlabs.py
+          python3 experiments/sim-ai-agent-elevenlabs/preset_elevenlabs.py "$RUNNER_TEMP/sim-ai-agent"
       - name: Check Persian UI and safe defaults
         shell: bash
         run: |
@@ -67,7 +73,9 @@ jobs:
           grep -q 'LayoutDirection.Rtl' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/MagicTheme.kt
           grep -q 'val audioMethod: Int = AudioMethod.LEGACY' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
           grep -q 'val takeover: Boolean = false' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
-          grep -q 'directSipMode' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
+          grep -q 'val directSipMode: Boolean = true' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
+          grep -q 'sip.rtc.elevenlabs.io' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
+          grep -q 'اعمال تنظیمات آماده ElevenLabs' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/MainActivity.kt
       - name: Restore native PJSIP cache
         id: native-cache
         uses: actions/cache/restore@v4
@@ -124,11 +132,11 @@ jobs:
           test -s "$APK"
           file "$APK"
           sha256sum "$APK"
-          cp "$APK" "$GITHUB_WORKSPACE/Magic-Agent-FA-v0.5.0-debug.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/Magic-Agent-FA-v0.5.1-debug.apk"
       - name: Upload actual APK
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Agent-FA-v0.5.0-debug
-          path: Magic-Agent-FA-v0.5.0-debug.apk
+          name: Magic-Agent-FA-v0.5.1-debug
+          path: Magic-Agent-FA-v0.5.1-debug.apk
           if-no-files-found: error
           retention-days: 7
