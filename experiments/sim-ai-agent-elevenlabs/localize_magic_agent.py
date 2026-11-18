@@ -337,6 +337,12 @@ ui=ui.replace('Text(detail(), style = MaterialTheme.typography.bodySmall, color 
 ui=ui.replace('Text(detail, style = MaterialTheme.typography.bodySmall)',
               'Text(MagicFa.status(detail), style = MaterialTheme.typography.bodySmall)')
 ui=ui.replace('Text(roleMessage)', 'Text(MagicFa.status(roleMessage))')
+# Repair one interpolated Kotlin template whose quoted empty string must remain untouched.
+ui=ui.replace(
+    '"Always SIM $selected${carrier?.let { " ($it)" } ?: ""؛ اگر سیم‌کارت غیرفعال باشد، تماس رد می‌شود."',
+    '"همیشه سیم‌کارت $selected${carrier?.let { " ($it)" } ?: ""}؛ اگر آن سیم‌کارت غیرفعال باشد، تماس رد می‌شود."',
+)
+
 # Keep SIP addresses, usernames, numbers and technical logs visually LTR inside the RTL shell.
 ui=ui.replace('import androidx.compose.material3.Text\n',
     'import androidx.compose.material3.Text\nimport androidx.compose.material3.LocalTextStyle\nimport androidx.compose.ui.text.style.TextDirection\n')
