@@ -1,0 +1,43 @@
+name: Publish Magic Phone Live Worker download
+
+on:
+  push:
+    branches:
+      - build/magic-phone-gemini-live-20261118
+    paths:
+      - '.github/workflows/publish-magic-phone-worker.yml'
+      - 'Magic-Phone-Worker/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  worker-download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout final Worker source
+        uses: actions/checkout@v4
+
+      - name: Validate exact Worker source and package downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKER=Magic-Phone-Worker/Magic-Phone-Live-Worker.js
+          test -s "$WORKER"
+          test "$(git hash-object "$WORKER")" = "6b409e17a4623ce98dd62d14b1a66f95aeeb51d5"
+          node --check "$WORKER"
+          cp "$WORKER" Magic-Phone-Live-Worker.js
+          ( cd Magic-Phone-Worker && zip -9 ../Magic-Phone-Live-Worker.zip Magic-Phone-Live-Worker.js README_FA.md )
+          unzip -t Magic-Phone-Live-Worker.zip
+          sha256sum Magic-Phone-Live-Worker.js Magic-Phone-Live-Worker.zip
+
+      - name: Attach Worker JS and ZIP to existing public release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload magic-phone-gemini-live-v0.5.0 --repo "$GITHUB_REPOSITORY" --clobber             Magic-Phone-Live-Worker.js Magic-Phone-Live-Worker.zip
+          gh release view magic-phone-gemini-live-v0.5.0 --repo "$GITHUB_REPOSITORY"             --json assets --jq '[.assets[] | {name:.name,size:.size,url:.url}]'
