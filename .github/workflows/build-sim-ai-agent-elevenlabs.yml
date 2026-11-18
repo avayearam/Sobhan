@@ -1,4 +1,4 @@
-name: Build SIM AI Agent ElevenLabs
+name: Build Persian Magic Agent APK
 on:
   push:
     branches:
@@ -67,6 +67,30 @@ jobs:
           grep -q 'val audioMethod: Int = AudioMethod.LEGACY' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
           grep -q 'val takeover: Boolean = false' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
           grep -q 'directSipMode' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt
+      - name: Localize Magic Agent (Persian RTL)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile experiments/sim-ai-agent-elevenlabs/localize_magic_agent.py
+          python3 experiments/sim-ai-agent-elevenlabs/localize_magic_agent.py "$RUNNER_TEMP/sim-ai-agent"
+          mkdir -p "$RUNNER_TEMP/sim-ai-agent/app/src/main/res/font"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/sim-ai-agent/app/src/main/res/font/vazirmatn.ttf" 'https://raw.githubusercontent.com/google/fonts/main/ofl/vazirmatn/Vazirmatn%5Bwght%5D.ttf'
+          test "$(stat -c %s "$RUNNER_TEMP/sim-ai-agent/app/src/main/res/font/vazirmatn.ttf")" -gt 80000
+          mkdir -p "$RUNNER_TEMP/sim-ai-agent/app/src/main/assets"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/sim-ai-agent/app/src/main/assets/Vazirmatn-OFL-License.txt" 'https://raw.githubusercontent.com/google/fonts/main/ofl/vazirmatn/OFL.txt'
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path(__import__('os').environ['RUNNER_TEMP'])/'sim-ai-agent'
+          for f in root.glob('app/src/main/res/**/*.xml'): ET.parse(f)
+          settings=(root/'app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/SettingsStore.kt').read_text()
+          ui=(root/'app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/MainActivity.kt').read_text()
+          assert 'val audioMethod: Int = AudioMethod.LEGACY' in settings
+          assert 'val takeover: Boolean = false' in settings
+          assert 'MagicAgentTheme()' in ui and 'مجیک ایجنت' in ui
+          assert 'sip.rtc.elevenlabs.io' in ui
+          print('XML/RTL/DirectTelephony default checks passed')
+          PY
       - name: Restore native PJSIP cache
         id: native-cache
         uses: actions/cache/restore@v4
@@ -94,7 +118,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/sim-ai-agent/sip-pjsua2/src/generated
           key: sim-agent-pjsip-2.17-openssl3.5.9-opus1.6.1-ndk28.2-arm64-v1
-      - name: Build signed debug APK
+      - name: Compile Persian Magic Agent debug APK
         shell: bash
         run: |
           set -euo pipefail
@@ -102,6 +126,12 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace --max-workers=1 :sip:test
           ./gradlew --no-daemon --stacktrace --max-workers=1 :gateway:test :app:testDebugUnitTest :app:assembleDebug
+      - name: Run gateway, SIP and Android unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sim-ai-agent"
+          ./gradlew --no-daemon :gateway:test :sip:test :app:testDebugUnitTest
       - name: Check built artifact
         shell: bash
         run: |
