@@ -1,0 +1,78 @@
+name: Diagnose Magic Phone Android APK installability
+
+on:
+  push:
+    branches:
+      - build/magic-phone-gemini-live-20261118
+    paths:
+      - '.github/workflows/diagnose-magic-phone-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-released-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download exact published APK and ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostic
+          gh release download magic-phone-gemini-live-v0.5.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Magic-Phone-Gemini-Live-0.5.1-debug.apk' \
+            --pattern 'Magic-Phone-Gemini-Live-0.5.1-debug.zip' \
+            --dir diagnostic
+          ls -lah diagnostic
+          test -s diagnostic/Magic-Phone-Gemini-Live-0.5.1-debug.apk
+          test -s diagnostic/Magic-Phone-Gemini-Live-0.5.1-debug.zip
+
+      - name: Check download integrity and ZIP contents
+        run: |
+          set -euo pipefail
+          cd diagnostic
+          echo "2044d106bdace69cd3fe9a493fa86333a65b9acb0c5c9b21a08cb5fd6a6259c0  Magic-Phone-Gemini-Live-0.5.1-debug.apk" | sha256sum -c -
+          file Magic-Phone-Gemini-Live-0.5.1-debug.apk
+          unzip -t Magic-Phone-Gemini-Live-0.5.1-debug.zip
+          unzip -p Magic-Phone-Gemini-Live-0.5.1-debug.zip Magic-Phone-Gemini-Live-0.5.1-debug.apk | sha256sum | tee zip-extracted-sha.txt
+          unzip -l Magic-Phone-Gemini-Live-0.5.1-debug.apk | tail -n 8
+          test "$(unzip -p Magic-Phone-Gemini-Live-0.5.1-debug.zip Magic-Phone-Gemini-Live-0.5.1-debug.apk | sha256sum | cut -d' ' -f1)" = "2044d106bdace69cd3fe9a493fa86333a65b9acb0c5c9b21a08cb5fd6a6259c0"
+
+      - name: Install Android APK validation utilities
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -1)"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "build-tools;36.0.0" "platforms;android-36"
+
+      - name: Validate Android package manifest, zip alignment, signature and native files
+        run: |
+          set -euo pipefail
+          APK="diagnostic/Magic-Phone-Gemini-Live-0.5.1-debug.apk"
+          TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$TOOLS/zipalign" -c -v -p 4 "$APK"
+          "$TOOLS/aapt" dump badging "$APK" | tee diagnostic/badging.txt
+          "$TOOLS/aapt" dump permissions "$APK" | tee diagnostic/permissions.txt
+          test "$("$TOOLS/aapt" dump badging "$APK" | grep -c "package: name='site.magics.phone.agent'")" -eq 1
+          test "$("$TOOLS/aapt" dump badging "$APK" | grep -c "native-code: 'arm64-v8a'")" -eq 1
+          unzip -l "$APK" | grep -E 'AndroidManifest.xml|classes.dex|lib/arm64-v8a/|resources.arsc' | head -n 35
+          echo "RELEASE APK VALIDATION COMPLETED"
+
+      - name: Upload package diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MagicPhone-0.5.1-install-diagnostics
+          path: |
+            diagnostic/badging.txt
+            diagnostic/permissions.txt
+            diagnostic/zip-extracted-sha.txt
+          if-no-files-found: warn
+          retention-days: 7
