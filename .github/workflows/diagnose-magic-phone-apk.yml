@@ -58,6 +58,11 @@ jobs:
           TOOLS="$ANDROID_HOME/build-tools/36.0.0"
           "$TOOLS/apksigner" verify --verbose --print-certs "$APK"
           "$TOOLS/zipalign" -c -v -p 4 "$APK"
+          "$TOOLS/zipalign" -c -v -P 16 4 "$APK"
+          "$TOOLS/apksigner" verify --min-sdk-version 36 --verbose "$APK"
+          "$TOOLS/aapt" dump xmltree "$APK" AndroidManifest.xml > diagnostic/manifest-tree.txt
+          echo "Manifest testOnly/split/nativeLibs attributes:"
+          grep -Ei "testOnly|isSplitRequired|requiredSplitTypes|extractNativeLibs|split" diagnostic/manifest-tree.txt || true
           "$TOOLS/aapt" dump badging "$APK" | tee diagnostic/badging.txt
           "$TOOLS/aapt" dump permissions "$APK" | tee diagnostic/permissions.txt
           test "$("$TOOLS/aapt" dump badging "$APK" | grep -c "package: name='site.magics.phone.agent'")" -eq 1
@@ -72,6 +77,7 @@ jobs:
           name: MagicPhone-0.5.1-install-diagnostics
           path: |
             diagnostic/badging.txt
+            diagnostic/manifest-tree.txt
             diagnostic/permissions.txt
             diagnostic/zip-extracted-sha.txt
           if-no-files-found: warn
