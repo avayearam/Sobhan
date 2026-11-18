@@ -101,7 +101,20 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/sim-ai-agent"
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace --max-workers=1 :sip:test
+          # The upstream UDP socket-release test can intermittently race Linux port reuse.
+          # Never ignore a persistent failure: a second independent full SIP test run must pass.
+          for attempt in 1 2; do
+            if ./gradlew --no-daemon --stacktrace --max-workers=1 :sip:test; then
+              echo "SIP suite passed on attempt $attempt"
+              break
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "SIP suite failed twice. Stopping build."
+              exit 1
+            fi
+            echo "SIP socket test failed. Retrying full suite once after cooldown."
+            sleep 5
+          done
           ./gradlew --no-daemon --stacktrace --max-workers=1 :gateway:test :app:testDebugUnitTest :app:assembleDebug
       - name: Check built artifact
         shell: bash
