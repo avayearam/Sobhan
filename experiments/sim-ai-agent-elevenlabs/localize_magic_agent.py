@@ -387,4 +387,21 @@ internal object MagicFa {
     }
 }
 ''')
+# Rebase the two test assumptions on the new, intentional configuration contract.
+# The SIP import/export surface has gained one directMode field, and the runtime default
+# audio route is now LEGACY. The lifecycle fixture still explicitly exercises AUTO -> LEGACY.
+config_test = root/'app/src/test/kotlin/io/github/sparkcyf/voicesipagent/app/ConfigFileTest.kt'
+t = config_test.read_text()
+assert t.count('assertEquals(22, imported.keys.size)') == 1
+t = t.replace('assertEquals(22, imported.keys.size)', 'assertEquals(23, imported.keys.size)')
+config_test.write_text(t)
+
+life_test = root/'app/src/test/kotlin/io/github/sparkcyf/voicesipagent/app/GatewayRuntimeLifecycleTest.kt'
+t = life_test.read_text()
+old = 'server = "pbx.invalid", username = "test", password = "test", holdSipWhenNotReady = holdSip))'
+assert t.count(old) == 1
+t = t.replace(old, 'server = "pbx.invalid", username = "test", password = "test", '
+              'audioMethod = AudioMethod.AUTO, holdSipWhenNotReady = holdSip))')
+life_test.write_text(t)
+
 print('Magic Agent localized: UI, safe defaults, theme, icon, runtime labels')
