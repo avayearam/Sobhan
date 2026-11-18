@@ -14,7 +14,7 @@ permissions:
 jobs:
   android-debug-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 100
     steps:
       - name: Checkout isolated build scripts
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
           test -x "$SDKMANAGER"
           echo "Using $SDKMANAGER"
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-36" "platform-tools" "build-tools;36.0.0"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-36" "platform-tools" "build-tools;36.0.0" "ndk;28.2.13676358"
       - name: Checkout pinned upstream source
         shell: bash
         run: |
@@ -45,12 +45,26 @@ jobs:
         run: |
           set -euo pipefail
           python3 experiments/sim-ai-agent-elevenlabs/apply_patch.py "$RUNNER_TEMP/upstream" --output "$RUNNER_TEMP/sim-ai-agent"
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y swig autoconf automake libtool make g++ patch perl
+      - name: Build PJSIP native Java bindings and arm64 JNI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sim-ai-agent"
+          ABIS=arm64-v8a bash sip-pjsua2/native/build-pjsua2.sh
+          test -s sip-pjsua2/src/generated/jniLibs/arm64-v8a/libpjsua2.so
+          test -s sip-pjsua2/src/generated/java/org/pjsip/pjsua2/Endpoint.java
       - name: Build signed debug APK
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/sim-ai-agent"
-          sed -i 's/version = release(37)/version = release(36)/' app/build.gradle.kts
+          find . -name build.gradle.kts -print0 | xargs -0 sed -i 's/version = release(37)/version = release(36)/'
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:assembleDebug
       - name: Check built artifact
