@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: avayearam/magics-phone
-          ref: a20fafa2a84e6a39681623f77f9133acb5a3c4fd
+          ref: 30876b2112aab9a1c85ad24222abfb445b8fed7d
           path: magic-phone-source
           submodules: recursive
           fetch-depth: 0
@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           cd magic-phone-source
-          test "$(git rev-parse HEAD)" = "a20fafa2a84e6a39681623f77f9133acb5a3c4fd"
+          test "$(git rev-parse HEAD)" = "30876b2112aab9a1c85ad24222abfb445b8fed7d"
           bash android/voice-sip-agent-overlay/apply.sh
           cd android/voice-sip-agent
           test "$(git rev-parse HEAD)" = "5105a1f447ffa25ba32d0620dbeef44bbc1705ce"
@@ -122,6 +122,28 @@ jobs:
           cd magic-phone-source/android/voice-sip-agent
           ./gradlew --no-daemon --stacktrace :app:assembleDebug
 
+      - name: Verify compact APK packaging and JNI compression
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="magic-phone-source/android/voice-sip-agent/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          python3 - "$APK" <<'PY'
+          import sys, os, zipfile
+          p=sys.argv[1]
+          with zipfile.ZipFile(p) as z:
+              libs=[item for item in z.infolist() if item.filename.startswith('lib/arm64-v8a/') and item.filename.endswith('.so')]
+              assert len(libs)>=2, "Missing ARM64 shared libraries"
+              assert all(item.compress_type == zipfile.ZIP_DEFLATED for item in libs), "Native .so not compressed"
+              print("JNI shared libraries:", len(libs))
+              print("Direct APK bytes:", os.stat(p).st_size)
+              assert os.stat(p).st_size < 21000000, "APK unexpectedly >21 MB; stop release"
+          PY
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/magic-phone-badging.txt
+          grep -F "versionCode='10' versionName='0.5.2'" /tmp/magic-phone-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --min-sdk-version 36 --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$APK" >/dev/null
+
       - name: Verify APK signature and package
         shell: bash
         run: |
@@ -132,15 +154,15 @@ jobs:
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose "$APK"
           mkdir -p output
-          cp "$APK" output/Magic-Phone-Gemini-Live-0.5.1-debug.apk
-          SHA="$(sha256sum output/Magic-Phone-Gemini-Live-0.5.1-debug.apk | awk '{print $1}')"
+          cp "$APK" output/Magic-Phone-Gemini-Live-0.5.2-debug.apk
+          SHA="$(sha256sum output/Magic-Phone-Gemini-Live-0.5.2-debug.apk | awk '{print $1}')"
           cat > output/BUILD-INFO.txt <<EOF
           Product: Magic Phone
           Mode: Gemini Live cellular-call bridge
-          Version: 0.5.1 (versionCode 9)
+          Version: 0.5.2 (versionCode 10)
           Application ID: site.magics.phone.agent
           Source repository: https://github.com/avayearam/magics-phone
-          Source commit: a20fafa2a84e6a39681623f77f9133acb5a3c4fd
+          Source commit: 30876b2112aab9a1c85ad24222abfb445b8fed7d
           Android upstream: https://github.com/sparkcyf/android-voice-sip-agent
           Android upstream commit: 5105a1f447ffa25ba32d0620dbeef44bbc1705ce
           ABI: arm64-v8a
@@ -154,9 +176,9 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-Gemini-Live-0.5.1-debug
+          name: Magic-Phone-Gemini-Live-0.5.2-debug
           path: |
-            output/Magic-Phone-Gemini-Live-0.5.1-debug.apk
+            output/Magic-Phone-Gemini-Live-0.5.2-debug.apk
             output/BUILD-INFO.txt
           if-no-files-found: error
           retention-days: 7
