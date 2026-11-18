@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: avayearam/magics-phone
-          ref: 30876b2112aab9a1c85ad24222abfb445b8fed7d
+          ref: 1bccb0c73dd4c951dc9b751f71510e666ef5da95
           path: magic-phone-source
           submodules: recursive
           fetch-depth: 0
@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           cd magic-phone-source
-          test "$(git rev-parse HEAD)" = "30876b2112aab9a1c85ad24222abfb445b8fed7d"
+          test "$(git rev-parse HEAD)" = "1bccb0c73dd4c951dc9b751f71510e666ef5da95"
           bash android/voice-sip-agent-overlay/apply.sh
           cd android/voice-sip-agent
           test "$(git rev-parse HEAD)" = "5105a1f447ffa25ba32d0620dbeef44bbc1705ce"
@@ -162,7 +162,7 @@ jobs:
           Version: 0.5.2 (versionCode 10)
           Application ID: site.magics.phone.agent
           Source repository: https://github.com/avayearam/magics-phone
-          Source commit: 30876b2112aab9a1c85ad24222abfb445b8fed7d
+          Source commit: 1bccb0c73dd4c951dc9b751f71510e666ef5da95
           Android upstream: https://github.com/sparkcyf/android-voice-sip-agent
           Android upstream commit: 5105a1f447ffa25ba32d0620dbeef44bbc1705ce
           ABI: arm64-v8a
