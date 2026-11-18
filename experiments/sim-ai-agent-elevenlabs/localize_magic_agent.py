@@ -405,3 +405,67 @@ t = t.replace(old, 'server = "pbx.invalid", username = "test", password = "test"
 life_test.write_text(t)
 
 print('Magic Agent localized: UI, safe defaults, theme, icon, runtime labels')
+
+# All user-facing safety/recovery screens must use the same Persian/RTL theme.
+dialer = app/'GatewayDialerActivity.kt'
+d = dialer.read_text()
+d = d.replace('import androidx.compose.foundation.isSystemInDarkTheme\n','').replace('import androidx.compose.material3.darkColorScheme\n','').replace('import androidx.compose.material3.lightColorScheme\n','')
+d = d.replace('MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme())', 'MagicAgentTheme()')
+dialer_map = {
+    'Voice SIP Agent': 'مجیک ایجنت',
+    'No gateway session': 'هیچ نشست فعالی وجود ندارد',
+    'Gateway bridge active': 'ارتباط تماس با ایجنت فعال است',
+    'Gateway will turn off after current calls end.':'پس از پایان تماس جاری، پاسخ‌گویی خاموش می‌شود.',
+    'Gateway will turn on after current calls end.':'پس از پایان تماس جاری، پاسخ‌گویی فعال می‌شود.',
+    'Waiting for current calls to end before changing the dialer.':'در انتظار پایان تماس برای تغییر تلفن پیش‌فرض.',
+    'Gateway is off. Switch to your usual dialer to handle calls.':'پاسخ‌گویی خاموش است؛ تماس‌ها را با تلفن معمولی مدیریت کنید.',
+    'Gateway is ready to bridge calls through the PBX.':'مسیر انتقال تماس به ایجنت آماده است.',
+    'Gateway is unavailable. Open configuration or switch to your usual dialer.':'مسیر تماس آماده نیست؛ تنظیمات را باز کنید یا به تلفن معمولی برگردید.',
+    'Turn takeover off': 'خاموش‌کردن پاسخ‌گویی',
+    'Turn takeover on': 'روشن‌کردن پاسخ‌گویی',
+    'For manual calls, restore your usual phone app or choose one in system Settings.':'برای تماس دستی، تلفن معمولی را برگردانید یا از تنظیمات اندروید انتخاب کنید.',
+    'Restore previous dialer':'بازگرداندن تلفن قبلی',
+    'Choose dialer in Settings':'انتخاب تلفن از تنظیمات اندروید',
+    'Cancel dialer change':'لغو تغییر برنامه تلفن',
+    'Enable takeover':'فعال‌کردن پاسخ‌گویی',
+    'Open configuration':'بازکردن تنظیمات',
+}
+for en, fa_text in dialer_map.items():
+    old = '"' + en + '"'
+    assert old in d, ('GatewayDialerActivity',en)
+    d = d.replace(old, '"'+fa_text+'"')
+d = d.replace('Text(health.calls.summary)', 'Text(MagicFa.status(health.calls.summary))')
+dialer.write_text(d)
+
+# Localize notification titles and text without changing the underlying state/logic
+# (test fixtures and functional code continue to consume the original status strings).
+gwservice=app/'GatewayService.kt'
+g=gwservice.read_text()
+for en, fa_text in {
+    'Gateway status':'وضعیت مجیک ایجنت',
+}.items():
+    old='"'+en+'"'; assert old in g
+    g=g.replace(old,'"'+fa_text+'"')
+g=g.replace('.setContentText(text)', '.setContentText(MagicFa.status(text))')
+g=g.replace('.setStyle(Notification.BigTextStyle().bigText(text))', '.setStyle(Notification.BigTextStyle().bigText(MagicFa.status(text)))')
+gwservice.write_text(g)
+
+cellservice=app/'GatewayDialerService.kt'
+c=cellservice.read_text()
+for en, fa_text in {
+    'Cellular call':'تماس سیم‌کارتی',
+    'Incoming cellular call':'تماس ورودی سیم‌کارت',
+    'Cellular call in progress':'تماس سیم‌کارت در جریان است',
+    'Open gateway status or switch dialer for recovery':'وضعیت مجیک ایجنت را بررسی کنید یا تلفن معمولی را بازگردانید',
+}.items():
+    old='"'+en+'"'; assert old in c,('GatewayDialerService',en)
+    c=c.replace(old,'"'+fa_text+'"')
+cellservice.write_text(c)
+
+# Keep SIP/RTP and other engineering logs verbatim. Their human interpretation is
+# intentionally separated from the underlying protocol and routing correctness.
+magicfa=app/'MagicFa.kt'
+fa_content=magicfa.read_text()
+fa_content=fa_content.replace('return when {','return when {\n            s.startsWith("In call · ") -> "در حال مکالمه · " + s.removePrefix("In call · ")\n            s.startsWith("Ready · ") -> "آماده پاسخ‌گویی · " + status(s.removePrefix("Ready · "))\n            s.startsWith("SIP: ") -> "ارتباط SIP: " + status(s.removePrefix("SIP: "))\n            s.equals("Call takeover off", true) -> "پاسخ‌گویی خودکار خاموش است"\n            s.equals("Loopback test mode", true) -> "حالت آزمایش اکو فعال است"\n            s.startsWith("Setup needed · ") -> "راه‌اندازی لازم است · " + s.removePrefix("Setup needed · ")\n            s.startsWith("Shizuku is not running") -> "سرویس شیزوکو فعال نیست؛ آن را روشن کنید و دوباره وارد برنامه شوید"\n            s.startsWith("Takeover off. Still your default phone app") -> "پاسخ‌گویی خاموش است اما مجیک ایجنت همچنان تلفن پیش‌فرض است"')
+magicfa.write_text(fa_content)
+print('Localized call recovery screen + Android notifications; transport and telephony logic unchanged')
