@@ -1,0 +1,25 @@
+name: Export pinned Android sources for localization QA
+on:
+  push:
+    branches:
+      - build/sim-ai-agent-elevenlabs-20261118
+    paths:
+      - '.github/workflows/export-sim-agent-sources.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        run: |
+          git clone -q https://github.com/sparkcyf/android-voice-sip-agent.git source
+          git -C source checkout -q --detach 5105a1f447ffa25ba32d0620dbeef44bbc1705ce
+          git -C source archive --format=zip HEAD -o "$GITHUB_WORKSPACE/upstream-sources.zip"
+      - name: Upload pinned source
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-sip-agent-pinned-source-5105a1f
+          path: upstream-sources.zip
+          retention-days: 2
