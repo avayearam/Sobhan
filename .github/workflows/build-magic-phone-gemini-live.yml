@@ -1,0 +1,157 @@
+name: Build Magic Phone Gemini Live APK
+
+on:
+  push:
+    branches:
+      - build/magic-phone-gemini-live-20261118
+    paths:
+      - '.github/workflows/build-magic-phone-gemini-live.yml'
+      - 'Magic-Phone-Gemini-Live/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: magic-phone-gemini-live-apk
+  cancel-in-progress: false
+
+jobs:
+  android-debug-apk:
+    name: Build and test Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout isolated build folder
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK API 37.2 and NDK r28c
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SDK root: ${ANDROID_HOME:-not-set}"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-37.2" "platform-tools" "build-tools;36.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      - name: Checkout exact Magic Phone source and pinned upstream submodule
+        uses: actions/checkout@v4
+        with:
+          repository: avayearam/magics-phone
+          ref: 91ebcd9c4310b50ce3ed5ae9e05c8e179db19a29
+          path: magic-phone-source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Verify source pins and apply Gemini Live integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-source
+          test "$(git rev-parse HEAD)" = "91ebcd9c4310b50ce3ed5ae9e05c8e179db19a29"
+          bash android/voice-sip-agent-overlay/apply.sh
+          cd android/voice-sip-agent
+          test "$(git rev-parse HEAD)" = "5105a1f447ffa25ba32d0620dbeef44bbc1705ce"
+          grep -q 'site.magics.phone.agent' app/build.gradle.kts
+          grep -q 'GeminiLiveEndpoint' app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/GatewayRuntime.kt
+
+      - name: Restore native PJSIP cache
+        id: native-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: magic-phone-source/android/voice-sip-agent/sip-pjsua2/src/generated
+          key: magic-phone-gemini-pjsip-2.17-openssl3.5.9-opus1.6.1-ndk28.2-arm64-v1
+
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y swig autoconf automake libtool make g++ patch perl
+
+      - name: Build PJSIP native Java bindings and arm64 JNI
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-source/android/voice-sip-agent
+          ABIS=arm64-v8a bash sip-pjsua2/native/build-pjsua2.sh
+          test -s sip-pjsua2/src/generated/jniLibs/arm64-v8a/libpjsua2.so
+          test -s sip-pjsua2/src/generated/java/org/pjsip/pjsua2/Endpoint.java
+
+      - name: Verify native cache contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-source/android/voice-sip-agent
+          test -s sip-pjsua2/src/generated/jniLibs/arm64-v8a/libpjsua2.so
+          test -s sip-pjsua2/src/generated/java/org/pjsip/pjsua2/Endpoint.java
+
+      - name: Save native PJSIP cache
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: magic-phone-source/android/voice-sip-agent/sip-pjsua2/src/generated
+          key: magic-phone-gemini-pjsip-2.17-openssl3.5.9-opus1.6.1-ndk28.2-arm64-v1
+
+      - name: Run JVM, gateway and Gemini Live unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-source/android/voice-sip-agent
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :sip:test :gateway:test :app:testDebugUnitTest
+
+      - name: Build signed debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-source/android/voice-sip-agent
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Verify APK signature and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="magic-phone-source/android/voice-sip-agent/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+          mkdir -p output
+          cp "$APK" output/Magic-Phone-Gemini-Live-0.5.0-debug.apk
+          SHA="$(sha256sum output/Magic-Phone-Gemini-Live-0.5.0-debug.apk | awk '{print $1}')"
+          cat > output/BUILD-INFO.txt <<EOF
+          Product: Magic Phone
+          Mode: Gemini Live cellular-call bridge
+          Version: 0.5.0 (versionCode 8)
+          Application ID: site.magics.phone.agent
+          Source repository: https://github.com/avayearam/magics-phone
+          Source commit: 91ebcd9c4310b50ce3ed5ae9e05c8e179db19a29
+          Android upstream: https://github.com/sparkcyf/android-voice-sip-agent
+          Android upstream commit: 5105a1f447ffa25ba32d0620dbeef44bbc1705ce
+          ABI: arm64-v8a
+          Signing: Android debug certificate (installable test build)
+          SHA256: $SHA
+          Worker: wss://phone.magics.site/ws?mode=phone
+          Google Gemini API key: remains on Cloudflare Worker; not packaged in APK
+          EOF
+          cat output/BUILD-INFO.txt
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Magic-Phone-Gemini-Live-0.5.0-debug
+          path: |
+            output/Magic-Phone-Gemini-Live-0.5.0-debug.apk
+            output/BUILD-INFO.txt
+          if-no-files-found: error
+          retention-days: 7
