@@ -91,4 +91,13 @@ assert 'val takeover: Boolean = false' in s
 assert 'val audioMethod: Int = AudioMethod.LEGACY' in s
 assert 'val directSipMode: Boolean = true' in s
 assert 'apply' or True
+
+# Legacy PBX lifecycle tests must continue to explicitly exercise PBX mode.
+# The customer-facing default is now direct ElevenLabs, so never rely on it in PBX fixtures.
+fixture = root / "app/src/test/kotlin/io/github/sparkcyf/voicesipagent/app/GatewayRuntimeLifecycleTest.kt"
+test = fixture.read_text()
+old = 'audioMethod = AudioMethod.AUTO, holdSipWhenNotReady = holdSip))'
+new = 'audioMethod = AudioMethod.AUTO, directSipMode = false, holdSipWhenNotReady = holdSip))'
+test = replace_once(test, old, new, "PBX lifecycle fixture")
+fixture.write_text(test)
 print("ElevenLabs defaults installed; identity remains on-device and takeover stays off.")
