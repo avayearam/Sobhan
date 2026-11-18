@@ -1,0 +1,57 @@
+name: Publish Magic Phone Gemini Live direct downloads
+
+on:
+  push:
+    branches:
+      - build/magic-phone-gemini-live-20261118
+    paths:
+      - '.github/workflows/publish-magic-phone-gemini-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-tested-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check existing successful APK build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN_ID=44382532866
+          status="$(gh run view "$RUN_ID" -R "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)"
+          test "$status" = "success"
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY"             --name Magic-Phone-Gemini-Live-0.5.0-debug --dir downloaded
+          ls -lh downloaded
+          test -s downloaded/Magic-Phone-Gemini-Live-0.5.0-debug.apk
+          test -s downloaded/BUILD-INFO.txt
+
+      - name: Verify APK against original successful build and make ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd downloaded
+          echo "d259e0abc7175f1d70997c0ca57b7f8f03a423153e9bf79baac2466746b1bd87  Magic-Phone-Gemini-Live-0.5.0-debug.apk" | sha256sum -c -
+          zip -9 -j Magic-Phone-Gemini-Live-0.5.0-debug.zip             Magic-Phone-Gemini-Live-0.5.0-debug.apk BUILD-INFO.txt
+          unzip -t Magic-Phone-Gemini-Live-0.5.0-debug.zip
+          test -s Magic-Phone-Gemini-Live-0.5.0-debug.zip
+
+      - name: Publish release with permanent direct HTTPS links
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=magic-phone-gemini-live-v0.5.0
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists, uploading/updating assets"
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber               downloaded/Magic-Phone-Gemini-Live-0.5.0-debug.apk               downloaded/Magic-Phone-Gemini-Live-0.5.0-debug.zip               downloaded/BUILD-INFO.txt
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "Magic Phone Gemini Live v0.5.0 — Android Debug APK"               --prerelease               --notes "Experimental installable Android APK built and signed by GitHub Actions run 44382532866. Original SHA256: d259e0abc7175f1d70997c0ca57b7f8f03a423153e9bf79baac2466746b1bd87. Real cellular-call Gemini Live verification is pending. No new APK was compiled for this release; this is the exact tested build artifact."               downloaded/Magic-Phone-Gemini-Live-0.5.0-debug.apk               downloaded/Magic-Phone-Gemini-Live-0.5.0-debug.zip               downloaded/BUILD-INFO.txt
+          fi
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY"             --json url,assets --jq '{url:.url,assets:[.assets[] | {name:.name,url:.url,size:.size}]}'
