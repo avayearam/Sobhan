@@ -144,7 +144,7 @@ jobs:
           mkdir -p dist
           cp "$APK" dist/Magic-Phone-0.5.6-direct-arm64-debug.apk
           sha256sum dist/Magic-Phone-0.5.6-direct-arm64-debug.apk > dist/SHA256SUMS.txt
-          printf 'source_repo=avayearam/magics-phone\nsource_sha=4da71408576ca4ba0ddf89b1f29235f99d0eb771\nmode=origin-only\nversion=0.5.6-direct\nbackend_sha=3a1625418220e03ebddedb741f401f1076f91006\n' > dist/BUILD_INFO.txt
+          printf 'source_repo=avayearam/magics-phone\nsource_sha=4da71408576ca4ba0ddf89b1f29235f99d0eb771\nmode=origin-only\nversion=0.5.6-direct\nbackend_sha=479839c827467a265474f707cad138377de21462\n' > dist/BUILD_INFO.txt
 
       - name: Upload signed debug APK only after passing all checks
         uses: actions/upload-artifact@v4
