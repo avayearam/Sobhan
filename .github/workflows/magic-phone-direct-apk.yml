@@ -75,12 +75,42 @@ jobs:
           bash magic-phone/android/voice-sip-agent-overlay/apply.sh
           grep -Fq 'wss://ai.magics.site/call/ws?mode=phone' magic-phone/android/voice-sip-agent/app/src/main/kotlin/io/github/sparkcyf/voicesipagent/app/GeminiLiveEndpoint.kt
 
-      - name: Build pinned native SIP dependency
+      - name: Restore native PJSIP cache from verified pinned upstream revision
+        id: native-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/sim-ai-agent/sip-pjsua2/src/generated
+          key: sim-agent-pjsip-2.17-openssl3.5.9-opus1.6.1-ndk28.2-arm64-v1
+
+      - name: Install pinned native generated JNI and SWIG sources from cache
+        if: steps.native-cache.outputs.cache-hit == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="$RUNNER_TEMP/sim-ai-agent/sip-pjsua2/src/generated"
+          TARGET="$GITHUB_WORKSPACE/magic-phone/android/voice-sip-agent/sip-pjsua2/src/generated"
+          test -s "$SOURCE/jniLibs/arm64-v8a/libpjsua2.so"
+          test -s "$SOURCE/java/org/pjsip/pjsua2/Endpoint.java"
+          mkdir -p "$(dirname "$TARGET")"
+          cp -a "$SOURCE" "$TARGET"
+          test -s "$TARGET/jniLibs/arm64-v8a/libpjsua2.so"
+          test -s "$TARGET/java/org/pjsip/pjsua2/Endpoint.java"
+          echo "Native sources restored from pinned upstream SHA 5105a1f447ffa25ba32d0620dbeef44bbc1705ce"
+
+      - name: Build pinned native SIP dependency if cache unavailable
+        if: steps.native-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
           cd magic-phone/android/voice-sip-agent/sip-pjsua2/native
           bash ./build-pjsua2.sh
+
+      - name: Verify native JNI and Java files exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s magic-phone/android/voice-sip-agent/sip-pjsua2/src/generated/jniLibs/arm64-v8a/libpjsua2.so
+          test -s magic-phone/android/voice-sip-agent/sip-pjsua2/src/generated/java/org/pjsip/pjsua2/Endpoint.java
 
       - name: Run Android unit tests and assemble APK
         shell: bash
