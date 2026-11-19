@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: avayearam/magics-phone
-          ref: 461ffb3aff8c8eb30e8cbb667c6e1e9b32eb3004
+          ref: edc422d07c21f94dad629b137d2f5bd0115ce55a
           path: magic-phone
           submodules: recursive
           fetch-depth: 1
@@ -29,10 +29,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C magic-phone rev-parse HEAD)" = "461ffb3aff8c8eb30e8cbb667c6e1e9b32eb3004"
+          test "$(git -C magic-phone rev-parse HEAD)" = "edc422d07c21f94dad629b137d2f5bd0115ce55a"
           git -C magic-phone submodule status
           test -f magic-phone/android/voice-sip-agent/gradlew
           test -f magic-phone/android/voice-sip-agent/sip-pjsua2/native/build-pjsua2.sh
+
+      - name: Checkout Magic Phone backend at exact feature commit
+        uses: actions/checkout@v4
+        with:
+          repository: avayearam/ai-magics-site
+          ref: f52201e92048d5c8d42e405a4a3d46ce27d43b82
+          path: magic-phone-backend
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up PHP for backend syntax and security contracts
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, mbstring, openssl, pdo_mysql
+
+      - name: Verify backend PHP syntax and encrypted BYOK/archive contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-backend
+          php -l call/device-api.php
+          php -l call/agents-api.php
+          php -l call/archive-api.php
+          php -l lib/MagicPhoneAgents.php
+          php -l lib/MagicPhoneArchive.php
+          php -l tests/magic-phone-device-contract.php
+          php tests/magic-phone-archive-contract.php
+          php tests/magic-phone-device-contract.php
+
+      - name: Set up Node.js 22 for Direct Bridge contract tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify Direct Bridge and per-device API-key contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd magic-phone-backend/call/direct-bridge
+          npm install --ignore-scripts --no-audit --no-fund
+          node --check server.cjs
+          npm test
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -140,19 +183,20 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | head -15
           printf '%s\n' "$BADGING" | grep -Fq "name='site.magics.phone.agent'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='11'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='13'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='0.5.5-direct'"
           unzip -tq "$APK"
           mkdir -p dist
-          cp "$APK" dist/Magic-Phone-0.5.3-direct-arm64-debug.apk
-          sha256sum dist/Magic-Phone-0.5.3-direct-arm64-debug.apk > dist/SHA256SUMS.txt
-          printf 'source_repo=avayearam/magics-phone\nsource_sha=461ffb3aff8c8eb30e8cbb667c6e1e9b32eb3004\nmode=origin-only\nversion=0.5.3-direct\n' > dist/BUILD_INFO.txt
+          cp "$APK" dist/Magic-Phone-0.5.5-direct-arm64-debug.apk
+          sha256sum dist/Magic-Phone-0.5.5-direct-arm64-debug.apk > dist/SHA256SUMS.txt
+          printf 'source_repo=avayearam/magics-phone\nsource_sha=edc422d07c21f94dad629b137d2f5bd0115ce55a\nmode=origin-only\nversion=0.5.5-direct\nbackend_sha=f52201e92048d5c8d42e405a4a3d46ce27d43b82\n' > dist/BUILD_INFO.txt
 
       - name: Upload signed debug APK only after passing all checks
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-0.5.3-direct-APK
+          name: Magic-Phone-0.5.5-direct-APK
           path: |
-            dist/Magic-Phone-0.5.3-direct-arm64-debug.apk
+            dist/Magic-Phone-0.5.5-direct-arm64-debug.apk
             dist/SHA256SUMS.txt
             dist/BUILD_INFO.txt
           if-no-files-found: error
