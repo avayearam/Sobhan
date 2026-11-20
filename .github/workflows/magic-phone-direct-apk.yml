@@ -152,7 +152,7 @@ jobs:
             sed -n '1,100p' "$LOG"
             grep -n -B 8 -A 16 -E "FAILURE: Build failed|What went wrong|Could not|error:|Exception|Caused by:|No such property" "$LOG" | tail -n 180 || true
             tail -n 80 "$LOG"
-            if grep -Eq "Could not resolve all artifacts|Could not find org.jetbrains|Could not resolve org.jetbrains|Could not find commons-io|Could not resolve .*classpath" "$LOG" \
+            if grep -Eiq "Could not resolve all artifacts|Could not find org.jetbrains|Could not resolve org.jetbrains|Could not find commons-io|Could not resolve .*classpath|could not resolve plugin artifact|Plugin Repositories" "$LOG" \
               && ! grep -Eq "[0-9]+ tests completed, [1-9][0-9]* failed|:app:testDebugUnitTest FAILED" "$LOG" \
               && [ "$attempt" -lt 5 ]; then
               echo "Transient dependency resolution failure; retrying after delay."
