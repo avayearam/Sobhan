@@ -7,7 +7,7 @@ on:
       - build/magic-phone-0.5.5-byok
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android-direct-debug:
@@ -203,3 +203,25 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 9
+ 
+      - name: Publish public GitHub Release ZIP
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP="dist/Magic-Phone-0.5.10-GitHub.zip"
+          zip -j "$ZIP" \
+            dist/Magic-Phone-0.5.10-direct-arm64-debug.apk \
+            dist/SHA256SUMS.txt \
+            dist/BUILD_INFO.txt
+          if gh release view magic-phone-0.5.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload magic-phone-0.5.10 "$ZIP" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create magic-phone-0.5.10 "$ZIP" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Magic Phone 0.5.10" \
+              --notes "Verified Android APK build. Includes APK, SHA256 checksum, and build information. Built from source commit 28217c5ca78b93d0ac7dad9bd165dec3dbbb658e."
+          fi
+          gh release view magic-phone-0.5.10 --repo "$GITHUB_REPOSITORY" --json url,assets
