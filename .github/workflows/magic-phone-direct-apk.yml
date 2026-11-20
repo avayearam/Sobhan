@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: avayearam/magics-phone
-          ref: 6c2ce6ccbaeb8b8b3131d4b11a73dfa141a50b0b
+          ref: 0c0ee54c32af1f5191cf51a82c8eb5f4460f103a
           path: magic-phone
           submodules: recursive
           fetch-depth: 1
@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C magic-phone rev-parse HEAD)" = "6c2ce6ccbaeb8b8b3131d4b11a73dfa141a50b0b"
+          test "$(git -C magic-phone rev-parse HEAD)" = "0c0ee54c32af1f5191cf51a82c8eb5f4460f103a"
           git -C magic-phone submodule status
           test -f magic-phone/android/voice-sip-agent/gradlew
           test -f magic-phone/android/voice-sip-agent/sip-pjsua2/native/build-pjsua2.sh
@@ -168,7 +168,7 @@ jobs:
           mkdir -p dist
           cp "$APK" dist/Magic-Phone-0.5.7-direct-arm64-debug.apk
           sha256sum dist/Magic-Phone-0.5.7-direct-arm64-debug.apk > dist/SHA256SUMS.txt
-          printf 'source_repo=avayearam/magics-phone\nsource_sha=6c2ce6ccbaeb8b8b3131d4b11a73dfa141a50b0b\nmode=origin-only\nversion=0.5.7-direct\nbackend_sha=1ee9c58bb41641b7dbad58d34a83b45727b4625d\n' > dist/BUILD_INFO.txt
+          printf 'source_repo=avayearam/magics-phone\nsource_sha=0c0ee54c32af1f5191cf51a82c8eb5f4460f103a\nmode=origin-only\nversion=0.5.7-direct\nbackend_sha=1ee9c58bb41641b7dbad58d34a83b45727b4625d\n' > dist/BUILD_INFO.txt
 
       - name: Upload signed debug APK only after passing all checks
         uses: actions/upload-artifact@v4
