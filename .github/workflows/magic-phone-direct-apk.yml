@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: avayearam/magics-phone
-          ref: 6436831f688a0c8f0d3e922b055646349dc5609d
+          ref: 28217c5ca78b93d0ac7dad9bd165dec3dbbb658e
           path: magic-phone
           submodules: recursive
           fetch-depth: 1
@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C magic-phone rev-parse HEAD)" = "6436831f688a0c8f0d3e922b055646349dc5609d"
+          test "$(git -C magic-phone rev-parse HEAD)" = "28217c5ca78b93d0ac7dad9bd165dec3dbbb658e"
           git -C magic-phone submodule status
           test -f magic-phone/android/voice-sip-agent/gradlew
           test -f magic-phone/android/voice-sip-agent/sip-pjsua2/native/build-pjsua2.sh
@@ -166,7 +166,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-0.5.9-unit-test-report
+          name: Magic-Phone-0.5.10-unit-test-report
           path: |
             magic-phone/android/voice-sip-agent/app/build/reports/tests/testDebugUnitTest/
             magic-phone/android/voice-sip-agent/app/build/test-results/testDebugUnitTest/
@@ -184,20 +184,20 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | head -15
           printf '%s\n' "$BADGING" | grep -Fq "name='site.magics.phone.agent'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionCode='17'"
-          printf '%s\n' "$BADGING" | grep -Fq "versionName='0.5.9-direct'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionCode='18'"
+          printf '%s\n' "$BADGING" | grep -Fq "versionName='0.5.10-direct'"
           unzip -tq "$APK"
           mkdir -p dist
-          cp "$APK" dist/Magic-Phone-0.5.9-direct-arm64-debug.apk
-          sha256sum dist/Magic-Phone-0.5.9-direct-arm64-debug.apk > dist/SHA256SUMS.txt
-          printf 'source_repo=avayearam/magics-phone\nsource_sha=6436831f688a0c8f0d3e922b055646349dc5609d\nmode=origin-only\nversion=0.5.9-direct\nbackend_sha=78dc229a8f4767010670a5c24a4854b743e1257a\nsigning_profile=stable-debug-v1\n' > dist/BUILD_INFO.txt
+          cp "$APK" dist/Magic-Phone-0.5.10-direct-arm64-debug.apk
+          sha256sum dist/Magic-Phone-0.5.10-direct-arm64-debug.apk > dist/SHA256SUMS.txt
+          printf 'source_repo=avayearam/magics-phone\nsource_sha=28217c5ca78b93d0ac7dad9bd165dec3dbbb658e\nmode=origin-only\nversion=0.5.10-direct\nbackend_sha=78dc229a8f4767010670a5c24a4854b743e1257a\nsigning_profile=stable-debug-v1\n' > dist/BUILD_INFO.txt
 
       - name: Upload signed debug APK only after passing all checks
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-0.5.9-stable-signing-APK
+          name: Magic-Phone-0.5.10-stable-signing-APK
           path: |
-            dist/Magic-Phone-0.5.9-direct-arm64-debug.apk
+            dist/Magic-Phone-0.5.10-direct-arm64-debug.apk
             dist/SHA256SUMS.txt
             dist/BUILD_INFO.txt
           if-no-files-found: error
