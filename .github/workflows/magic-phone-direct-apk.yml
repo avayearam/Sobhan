@@ -41,6 +41,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: magic-phone-gradle-${{ runner.os }}-${{ hashFiles('magic-phone/android/voice-sip-agent/**/*.gradle*', 'magic-phone/android/voice-sip-agent/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            magic-phone-gradle-${{ runner.os }}-
+
       - name: Install Android SDK 37.2 and pinned NDK using preinstalled runner tools
         shell: bash
         run: |
@@ -111,8 +121,8 @@ jobs:
           set -euo pipefail
           cd magic-phone/android/voice-sip-agent
           LOG="$RUNNER_TEMP/magic-phone-gradle.log"
-          for attempt in 1 2 3; do
-            echo "Gradle attempt $attempt/3"
+          for attempt in 1 2 3 4 5; do
+            echo "Gradle attempt $attempt/5"
             if bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug > "$LOG" 2>&1; then
               tail -n 100 "$LOG"
               echo "PASS: unit tests + assembleDebug"
@@ -121,7 +131,7 @@ jobs:
             tail -n 160 "$LOG"
             if grep -Eq "Could not resolve all artifacts|Could not find org.jetbrains|Could not resolve org.jetbrains|Could not find commons-io|Could not resolve .*classpath" "$LOG" \
               && ! grep -Eq "[0-9]+ tests completed, [1-9][0-9]* failed|:app:testDebugUnitTest FAILED" "$LOG" \
-              && [ "$attempt" -lt 3 ]; then
+              && [ "$attempt" -lt 5 ]; then
               echo "Transient dependency resolution failure; retrying after delay."
               sleep $((attempt * 15))
               continue
