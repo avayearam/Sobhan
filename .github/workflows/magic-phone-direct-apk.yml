@@ -115,6 +115,28 @@ jobs:
           test -s magic-phone/android/voice-sip-agent/sip-pjsua2/src/generated/jniLibs/arm64-v8a/libpjsua2.so
           test -s magic-phone/android/voice-sip-agent/sip-pjsua2/src/generated/java/org/pjsip/pjsua2/Endpoint.java
 
+      - name: Restore persistent debug signing key for update compatibility
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: magic-phone-android-debug-signing-v1
+
+      - name: Initialize debug signing key once when cache is empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey >/dev/null
+          echo "Verified stable debug signing keystore is available."
+
       - name: Run Android tests and assemble APK (retry transient Maven failures only)
         shell: bash
         run: |
@@ -144,7 +166,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-0.5.6-unit-test-report
+          name: Magic-Phone-0.5.7-unit-test-report
           path: |
             magic-phone/android/voice-sip-agent/app/build/reports/tests/testDebugUnitTest/
             magic-phone/android/voice-sip-agent/app/build/test-results/testDebugUnitTest/
@@ -168,12 +190,12 @@ jobs:
           mkdir -p dist
           cp "$APK" dist/Magic-Phone-0.5.7-direct-arm64-debug.apk
           sha256sum dist/Magic-Phone-0.5.7-direct-arm64-debug.apk > dist/SHA256SUMS.txt
-          printf 'source_repo=avayearam/magics-phone\nsource_sha=0c0ee54c32af1f5191cf51a82c8eb5f4460f103a\nmode=origin-only\nversion=0.5.7-direct\nbackend_sha=1ee9c58bb41641b7dbad58d34a83b45727b4625d\n' > dist/BUILD_INFO.txt
+          printf 'source_repo=avayearam/magics-phone\nsource_sha=0c0ee54c32af1f5191cf51a82c8eb5f4460f103a\nmode=origin-only\nversion=0.5.7-direct\nbackend_sha=1ee9c58bb41641b7dbad58d34a83b45727b4625d\nsigning_profile=stable-debug-v1\n' > dist/BUILD_INFO.txt
 
       - name: Upload signed debug APK only after passing all checks
         uses: actions/upload-artifact@v4
         with:
-          name: Magic-Phone-0.5.7-direct-APK
+          name: Magic-Phone-0.5.7-stable-signing-APK
           path: |
             dist/Magic-Phone-0.5.7-direct-arm64-debug.apk
             dist/SHA256SUMS.txt
