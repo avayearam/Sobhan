@@ -1,0 +1,67 @@
+name: Magic Phone origin connectivity diagnosis
+
+on:
+  push:
+    paths:
+      - '.github/workflows/magic-phone-origin-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  origin-readonly-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: DNS resolution of the direct origin
+        shell: bash
+        run: |
+          echo '### voice.magics.site IPv4 records'
+          getent ahostsv4 voice.magics.site || true
+          echo '### voice.magics.site IPv6 records'
+          getent ahostsv6 voice.magics.site || true
+          echo '### ai.magics.site IPv4 records for comparison'
+          getent ahostsv4 ai.magics.site || true
+
+      - name: HTTPS direct origin health and TLS probe
+        shell: bash
+        run: |
+          set +e
+          for endpoint in https://voice.magics.site/health https://voice.magics.site/call/health; do
+            echo "### GET $endpoint"
+            curl -4 -sS -D /tmp/magic-headers -o /tmp/magic-body \
+              --connect-timeout 8 --max-time 18 \
+              -w 'status=%{http_code} remote_ip=%{remote_ip} connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s\n' "$endpoint"
+            echo "curl_exit=$?"
+            sed -n '1,18p' /tmp/magic-headers 2>/dev/null
+            head -c 1200 /tmp/magic-body 2>/dev/null
+            echo
+          done
+
+      - name: Unauthenticated WebSocket Upgrade (expects HTTP 401)
+        shell: bash
+        run: |
+          set +e
+          echo '### Direct-origin WebSocket Upgrade; no device token sent'
+          curl -4 --http1.1 -sS --connect-timeout 8 --max-time 18 \
+            -D /tmp/magic-ws-headers -o /tmp/magic-ws-body \
+            -H 'Origin: https://ai.magics.site' \
+            -H 'Connection: Upgrade' \
+            -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' \
+            -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+            -H 'Sec-WebSocket-Protocol: magic-phone.v1' \
+            -w 'status=%{http_code} remote_ip=%{remote_ip} connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s\n' \
+            'https://voice.magics.site/ws?mode=phone'
+          echo "curl_exit=$?"
+          sed -n '1,18p' /tmp/magic-ws-headers 2>/dev/null
+          head -c 500 /tmp/magic-ws-body 2>/dev/null
+          echo
+
+      - name: Explain expected response
+        shell: bash
+        run: |
+          echo 'Success criteria: HTTPS /health returns 200 with magic-phone-direct; unauthenticated WS Upgrade returns 401 (reached Node).'
+          echo 'Connection timeout, TLS failure, or HTML/403/404 indicate DNS, origin listener, cPanel routing, or a proxy mismatch.'
+          echo 'No credentials, private conversation content, or caller numbers are included in this diagnostic.'
