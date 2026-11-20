@@ -2,6 +2,9 @@ name: Build Magic Phone Direct Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - build/magic-phone-0.5.5-byok
 
 permissions:
   contents: read
