@@ -32,7 +32,7 @@ if(str_contains($sitemap,'<lastmod>2026-10-29</lastmod>'))
     throw new RuntimeException('Old landing sitemap lastmod remains');
 
 $landingSource=(string)file_get_contents(dirname(__DIR__).'/landing.php');
-seoAssert(preg_match('~\$landingFallbackJson\s*=\s*<<<\'MAGIC_LANDING_DICTIONARY\'\R(.*?)\R MAGIC_LANDING_DICTIONARY;~s',$landingSource,$dictionaryMatch)===1,'Translation dictionary heredoc missing');
+seoAssert(preg_match('~\$landingFallbackJson\s*=\s*<<<\'MAGIC_LANDING_DICTIONARY\'\R(.*?)\R\s*MAGIC_LANDING_DICTIONARY;~s',$landingSource,$dictionaryMatch)===1,'Translation dictionary heredoc missing');
 $translationDictionary=json_decode($dictionaryMatch[1],true,512,JSON_THROW_ON_ERROR);
 $englishTranslations=$translationDictionary['en']??null;
 $arabicTranslations=$translationDictionary['ar']??null;
