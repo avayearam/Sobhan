@@ -135,7 +135,7 @@ foreach (['fa','en','ar'] as $language) {
     $schemaKeywords=$nodes['WebPage']['keywords']??null;
     seoAssert(is_array($schemaKeywords)&&count($schemaKeywords)===$expectedKeywordCounts[$language],$language.' schema keywords must be split into localized terms');
     seoAssert(($nodes['SoftwareApplication']['keywords']??null)===$schemaKeywords,$language.' application schema keywords mismatch');
-    seoAssert($nodes['WebSite']['inLanguage'] === $schemaLanguage, $language.' website schema language mismatch');
+    seoAssert(($nodes['WebSite']['inLanguage']??null) === $schemaLanguage, $language.' website schema language mismatch: expected '.var_export($schemaLanguage,true).' got '.var_export($nodes['WebSite']['inLanguage']??null,true));
     seoAssert($nodes['SoftwareApplication']['inLanguage'] === $schemaLanguage, $language.' application schema language mismatch');
     seoAssert($nodes['FAQPage']['@id'] === $canonical.'#faq', $language.' FAQ schema identity mismatch');
     seoAssert(($nodes['WebPage']['primaryImageOfPage']['url']??'')===$ogImageUrl,$language.' schema primary image URL mismatch');
