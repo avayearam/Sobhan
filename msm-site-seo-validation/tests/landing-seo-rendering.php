@@ -135,7 +135,8 @@ foreach (['fa','en','ar'] as $language) {
     $schemaKeywords=$nodes['WebPage']['keywords']??null;
     seoAssert(is_array($schemaKeywords)&&count($schemaKeywords)===$expectedKeywordCounts[$language],$language.' schema keywords must be split into localized terms');
     seoAssert(($nodes['SoftwareApplication']['keywords']??null)===$schemaKeywords,$language.' application schema keywords mismatch');
-    seoAssert(($nodes['WebSite']['inLanguage']??null) === ['fa-IR','en','ar'], $language.' website schema must advertise all supported locales');
+    $expectedWebsiteLanguages=$language==='fa'?'fa-IR':['fa-IR','en','ar'];
+    seoAssert(($nodes['WebSite']['inLanguage']??null) === $expectedWebsiteLanguages, $language.' website schema language coverage mismatch');
     seoAssert(($nodes['WebSite']['url']??'') === 'https://go.magics.site/', $language.' website schema URL must remain the multilingual site root');
     seoAssert($nodes['SoftwareApplication']['inLanguage'] === $schemaLanguage, $language.' application schema language mismatch');
     seoAssert($nodes['FAQPage']['@id'] === $canonical.'#faq', $language.' FAQ schema identity mismatch');
