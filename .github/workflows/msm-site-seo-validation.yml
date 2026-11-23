@@ -1,0 +1,52 @@
+name: MSM Landing SEO Validation
+
+on:
+  push:
+    branches:
+      - 'test/msm-site-seo-20261123'
+    paths:
+      - '.github/workflows/msm-site-seo-validation.yml'
+      - 'msm-site-seo-validation/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  landing-seo:
+    name: PHP 8.4, multilingual render and JavaScript syntax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout isolated test snapshot
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify runtime versions
+        run: |
+          php --version
+          node --version
+
+      - name: PHP syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l msm-site-seo-validation/landing.php
+          php -l msm-site-seo-validation/tests/landing-seo-rendering.php
+
+      - name: Render and validate Persian, English and Arabic
+        shell: bash
+        run: |
+          set -euo pipefail
+          php msm-site-seo-validation/tests/landing-seo-rendering.php

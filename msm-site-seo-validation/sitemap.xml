@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://go.magics.site/</loc>
+    <lastmod>2026-11-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fa-IR" href="https://go.magics.site/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://go.magics.site/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://go.magics.site/?lang=ar" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://go.magics.site/" />
+  </url>
+  <url>
+    <loc>https://go.magics.site/?lang=en</loc>
+    <lastmod>2026-11-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fa-IR" href="https://go.magics.site/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://go.magics.site/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://go.magics.site/?lang=ar" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://go.magics.site/" />
+  </url>
+  <url>
+    <loc>https://go.magics.site/?lang=ar</loc>
+    <lastmod>2026-11-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fa-IR" href="https://go.magics.site/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://go.magics.site/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ar" href="https://go.magics.site/?lang=ar" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://go.magics.site/" />
+  </url>
+  <url>
+    <loc>https://go.magics.site/privacy-policy.php</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://go.magics.site/terms-of-service.php</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://go.magics.site/help/</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+
