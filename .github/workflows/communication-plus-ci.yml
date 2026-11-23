@@ -1,0 +1,82 @@
+name: MSM Communication Plus CI
+
+on:
+  push:
+    branches:
+      - ci/communication-plus-live-tests
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: PHP, JavaScript and Communication+ regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CI harness
+        uses: actions/checkout@v4
+
+      - name: Checkout private MSM source
+        uses: actions/checkout@v4
+        with:
+          repository: avayearam/msm-site
+          ref: work/communication-plus-live-send-polling
+          path: msm-site
+          token: ${{ secrets.MSM_SITE_READ_TOKEN || secrets.MSM_REPO_READ_TOKEN || secrets.MSM_TOKEN || secrets.GH_PAT || secrets.GH_TOKEN || secrets.GITHUB_PAT || github.token }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, mbstring, pdo_mysql
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify exact source commit and whitespace
+        run: |
+          set -euo pipefail
+          actual="$(git -C msm-site rev-parse HEAD)"
+          test "$actual" = "a27398e995e4fa7ff9012d12b0525fda7a7c3051"
+          git -C msm-site diff --check 192386d4d73be0425514f4d3dd8eac1b45b45743...HEAD
+
+      - name: PHP syntax checks
+        run: |
+          set -euo pipefail
+          for file in \
+            api/communication-plus.php \
+            api/communication-plus-reply.php \
+            lib/local-messenger-notification-runtime.php \
+            lib/local-messenger-social-runtime.php \
+            lang/modules/communication-v1469/fa.php \
+            lang/modules/communication-v1469/en.php \
+            lang/modules/communication-v1469/ar.php \
+            tests/communication-plus-r13.6-mobile-send-performance-regression.php \
+            tests/communication-plus-live-send-polling-regression.php
+          do
+            php -l "msm-site/$file"
+          done
+
+      - name: JavaScript syntax checks
+        run: |
+          set -euo pipefail
+          node --check msm-site/assets/js/communication-plus-unified.js
+          node --check msm-site/assets/js/communication-plus-rich-composer-r135.js
+
+      - name: Communication+ regression suite
+        working-directory: msm-site
+        run: |
+          set -euo pipefail
+          php tests/communication-plus-reply-regression.php
+          php tests/communication-plus-unified-inbox-regression.php
+          php tests/communication-plus-r13.6-mobile-send-performance-regression.php
+          php tests/communication-plus-mobile-viewport-regression.php
+          php tests/communication-plus-r13.5-instagram-parity-regression.php
+          php tests/communication-plus-parallel-page-regression.php
+          php tests/communication-plus-live-send-polling-regression.php
