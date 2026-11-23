@@ -2,7 +2,10 @@ MSM landing SEO isolated validation snapshot
 Source repository: avayearam/msm-site
 Source branch: fix/landing-localized-schema-20261123-r2
 Source landing.php blob: b50863f738b96fcccd294ab1f978b5d4203c0f7a
-Source test file blob: a744cfd910e2bf1997c633175a145cab5c216d40
+Source test file blob: edd00b27a0168114eff49b8cabbb7ca9db40707f
 Source sitemap.xml blob: 831f60da63cd48b793dcb3bf9f7cded1c83afa9d
-Validation scope: PHP 8.4 syntax, real guest render in fa/en/ar, metadata and JSON-LD, 770-entry translation coverage, inline JavaScript syntax, sitemap date and real JPEG dimensions/MIME.
+Source shared header blob: f1a7af5e6aca64ba1fc5ce2fdb77e59ae17620e9
+Source shared footer blob: c365a50444812a322bcc3830f49a89164ff959fb
+Source translation asset blob: 51cabab911f0bf623cfae63b581097df9e1ac805
+Validation scope: PHP 8.4 syntax, real guest render in fa/en/ar, metadata and JSON-LD, 770-entry translation coverage and fallback parity, inline JavaScript syntax, sitemap date and real JPEG dimensions/MIME.
 This directory is an isolated test fixture; it does not replace or modify the Magic Phone project in this repository.
