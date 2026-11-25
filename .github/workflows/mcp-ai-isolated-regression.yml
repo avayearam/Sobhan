@@ -1,0 +1,41 @@
+name: Magic MCP AI isolated regression
+on:
+  push:
+    branches: [ci/mcp-ai-generation-20261125]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout private candidate
+        uses: actions/checkout@v4
+        with:
+          repository: avayearam/msm-site
+          ref: b049f009a1837f3a882d56a65c3dc4c55fd8f917
+          path: source
+          token: ${{ secrets.MSM_SITE_READ_TOKEN || secrets.MSM_REPO_READ_TOKEN || secrets.MSM_TOKEN || secrets.GH_PAT || secrets.GH_TOKEN || secrets.GITHUB_PAT || github.token }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, mbstring, pdo_mysql, sqlite3, pdo_sqlite
+          coverage: none
+      - name: Exact candidate syntax and whitespace
+        working-directory: source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "b049f009a1837f3a882d56a65c3dc4c55fd8f917"
+          git diff --check 967f584bdad083e288a77e83521a914d66b7306d HEAD
+          git diff --name-only --diff-filter=ACM 967f584bdad083e288a77e83521a914d66b7306d HEAD -- '*.php' | while IFS= read -r f; do php -l "$f" >/dev/null || { echo "PHP syntax failed: $f"; exit 1; }; done
+          echo "PHP syntax passed"
+      - name: Mocked and local MCP regression
+        working-directory: source
+        run: |
+          set -euo pipefail
+          for f in tests/mcp-ai-generation-smoke.php tests/mcp-ai-generation-oauth-contract.php tests/mcp-chatgpt-action-discovery-smoke.php tests/mcp-public-annotations-smoke.php tests/mcp-messenger-contact-contract.php tests/mcp-messenger-inbox-contract.php tests/mcp-messenger-publisher-contract.php tests/mcp-oauth-select-all-smoke.php tests/mcp-consent-scope-smoke.php tests/mcp-oauth-security-smoke.php tests/mcp-r1-oauth-isolation-smoke.php tests/mcp-r1-protocol-outcome-smoke.php tests/mcp-foundation-smoke.php; do
+            if php "$f" > /tmp/mcp-test-result 2>&1; then echo "PASS $f"; else echo "FAIL $f"; exit 1; fi
+          done
