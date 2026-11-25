@@ -1,41 +1,113 @@
-name: Magic MCP AI isolated regression
+name: Magic MCP sealed private-source regression
 on:
   push:
     branches: [ci/mcp-ai-generation-20261125]
+    paths: ['.github/workflows/mcp-ai-isolated-regression.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Checkout private candidate
-        uses: actions/checkout@v4
-        with:
-          repository: avayearam/msm-site
-          ref: b049f009a1837f3a882d56a65c3dc4c55fd8f917
-          path: source
-          token: ${{ secrets.MSM_SITE_READ_TOKEN || secrets.MSM_REPO_READ_TOKEN || secrets.MSM_TOKEN || secrets.GH_PAT || secrets.GH_TOKEN || secrets.GITHUB_PAT || github.token }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: shivammathur/setup-php@v2
+      - name: Publish ephemeral RSA public key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$RUNNER_TEMP/magic-mcp-qa"
+          mkdir -p "$dir"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$dir/private.pem" 2>/dev/null
+          openssl pkey -in "$dir/private.pem" -pubout -out "$dir/public.pem"
+          prefix="ci-exchange/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          jq -n --arg msg "ci: ephemeral QA public key" --arg branch "$GITHUB_REF_NAME" --arg content "$(base64 -w0 "$dir/public.pem")" '{message:$msg,branch:$branch,content:$content}' | gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$prefix/public.pem" --input - >/dev/null
+          echo "QA_EXCHANGE_PREFIX=$prefix" >> "$GITHUB_ENV"
+      - name: Setup PHP and cryptographic verifier
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           extensions: curl, mbstring, pdo_mysql, sqlite3, pdo_sqlite
           coverage: none
-      - name: Exact candidate syntax and whitespace
-        working-directory: source
+      - name: Receive authenticated encrypted input and execute isolated QA
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "b049f009a1837f3a882d56a65c3dc4c55fd8f917"
-          git diff --check 967f584bdad083e288a77e83521a914d66b7306d HEAD
-          git diff --name-only --diff-filter=ACM 967f584bdad083e288a77e83521a914d66b7306d HEAD -- '*.php' | while IFS= read -r f; do php -l "$f" >/dev/null || { echo "PHP syntax failed: $f"; exit 1; }; done
-          echo "PHP syntax passed"
-      - name: Mocked and local MCP regression
-        working-directory: source
-        run: |
-          set -euo pipefail
-          for f in tests/mcp-ai-generation-smoke.php tests/mcp-ai-generation-oauth-contract.php tests/mcp-chatgpt-action-discovery-smoke.php tests/mcp-public-annotations-smoke.php tests/mcp-messenger-contact-contract.php tests/mcp-messenger-inbox-contract.php tests/mcp-messenger-publisher-contract.php tests/mcp-oauth-select-all-smoke.php tests/mcp-consent-scope-smoke.php tests/mcp-oauth-security-smoke.php tests/mcp-r1-oauth-isolation-smoke.php tests/mcp-r1-protocol-outcome-smoke.php tests/mcp-foundation-smoke.php; do
-            if php "$f" > /tmp/mcp-test-result 2>&1; then echo "PASS $f"; else echo "FAIL $f"; exit 1; fi
-          done
+          umask 077
+          dir="$RUNNER_TEMP/magic-mcp-qa"
+          export QA_DIR="$dir"
+          python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305' 2>/dev/null || { python3 -m venv "$dir/venv"; "$dir/venv/bin/pip" -q install cryptography; }
+          py=python3
+          [ ! -x "$dir/venv/bin/python" ] || py="$dir/venv/bin/python"
+          cat > "$dir/verify.py" <<'PY'
+          import base64, hashlib, json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.request
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+          root=pathlib.Path(os.environ['QA_DIR'])
+          prefix=os.environ['QA_EXCHANGE_PREFIX']
+          branch=os.environ['GITHUB_REF_NAME']
+          repo=os.environ['GITHUB_REPOSITORY']
+          key=serialization.load_pem_private_key((root/'private.pem').read_bytes(),password=None)
+          def fetch(path):
+              url=f'https://raw.githubusercontent.com/{repo}/refs/heads/{branch}/{prefix}/{path}'
+              with urllib.request.urlopen(url,timeout=15) as r: return r.read()
+          def publish(path, data):
+              body={'message':'ci: isolated QA result','branch':branch,'content':base64.b64encode(data).decode()}
+              subprocess.run(['gh','api','--method','PUT',f'repos/{repo}/contents/{prefix}/{path}','--input','-'],input=json.dumps(body).encode(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+          cleanenv={k:v for k,v in os.environ.items() if k in ['PATH','HOME','LANG','LC_ALL','TZ','SYSTEMROOT','TMPDIR']}
+          cleanenv['HOME']=str(root/'isolated-home')
+          pathlib.Path(cleanenv['HOME']).mkdir(exist_ok=True)
+          def run(cmd,cwd):
+              try:
+                  x=subprocess.run(cmd,cwd=cwd,env=cleanenv,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90)
+                  return x.returncode,x.stdout.decode('utf-8','replace')[-8000:]
+              except subprocess.TimeoutExpired: return 124,'timeout'
+          deadline=time.monotonic()+780
+          for rnd in range(1,5):
+              name=f'round-{rnd}'
+              while True:
+                  try: m=json.loads(fetch(f'{name}/manifest.json')); break
+                  except Exception:
+                      if time.monotonic()>deadline: raise SystemExit('No sealed QA input received in time')
+                      time.sleep(4)
+              secret=key.decrypt(base64.b64decode(m['wrapped_key']),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+              cipher=ChaCha20Poly1305(secret)
+              clear=b''.join(cipher.decrypt(bytes.fromhex(part['nonce']),fetch(f'{name}/{part["file"]}'),None) for part in m['parts'])
+              bundle=json.loads(clear)
+              if not re.fullmatch('[0-9a-f]{40}',bundle['ref']): raise ValueError('invalid candidate')
+              work=root/name
+              work.mkdir()
+              known=set()
+              for f in bundle['files']:
+                  p=pathlib.PurePosixPath(f['path'])
+                  if p.is_absolute() or '..' in p.parts or str(p) in known or str(p).startswith('config/'): raise ValueError('unsafe source path')
+                  known.add(str(p))
+                  raw=base64.b64decode(f['b64'],validate=True)
+                  actual=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+                  if actual!=f['sha']: raise ValueError('source hash mismatch')
+                  dest=work/p
+                  dest.parent.mkdir(parents=True,exist_ok=True)
+                  dest.write_bytes(raw)
+              results=[]
+              details=[]
+              for kind, paths in [('lint',bundle['lint']),('test',bundle['tests'])]:
+                  for p in paths:
+                      if p not in known: raise ValueError('unverified test path')
+                      code,out=run(['php','-l',p] if kind=='lint' else ['php',p],work)
+                      results.append({'kind':kind,'path':p,'passed':code==0,'exit':code})
+                      if code: details.append({'kind':kind,'path':p,'output':out})
+              success=all(x['passed'] for x in results)
+              nonce=os.urandom(12)
+              report={'ref':bundle['ref'],'verified_blobs':len(known),'passed':success,'results':results,'details_nonce':nonce.hex(),'details_encrypted':base64.b64encode(cipher.encrypt(nonce,json.dumps(details).encode(),None)).decode()}
+              publish(f'{name}/result.json',json.dumps(report).encode())
+              print(f'Round {rnd}: verified {len(known)} blobs; {sum(x["passed"] for x in results)}/{len(results)} checks passed',flush=True)
+              if success: sys.exit(0)
+          raise SystemExit('QA regression did not pass')
+          PY
+          "$py" "$dir/verify.py"
+      - name: Delete ephemeral key and decrypted source
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/magic-mcp-qa"
