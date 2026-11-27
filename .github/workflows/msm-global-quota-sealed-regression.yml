@@ -111,3 +111,5 @@ jobs:
       - name: Delete ephemeral key and decrypted source
         if: always()
         run: rm -rf "$RUNNER_TEMP/magic-mcp-qa"
+
+# QA runner refresh: 2026-11-28 candidate validation.
