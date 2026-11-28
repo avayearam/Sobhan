@@ -113,3 +113,5 @@ jobs:
         run: rm -rf "$RUNNER_TEMP/magic-mcp-qa"
 
 # QA runner refresh: 2026-11-28 candidate validation.
+
+# QA runner refresh: attempt 4, 2026-11-28.
